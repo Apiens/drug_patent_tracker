@@ -1,6 +1,9 @@
 config.py
 test.txt
+api_key.txt
 .vscode/
+.ipynb
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
