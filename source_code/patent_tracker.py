@@ -7,10 +7,11 @@ from bs4 import BeautifulSoup
 from typing import Union, List, Tuple, Iterator, Iterable, Dict
 import openpyxl
 from default_style import info_style, field_style, record_style, sheet_style
+import string
 
+api_key_path = "../input_setting/api_key.txt"
 input_path = "../input_setting/input.xlsx"
 output_directory = "../output"
-api_key_path = "../input_setting/api_key.txt"
 
 ## FYI ##
 #current version: v1.0
@@ -73,6 +74,7 @@ class PatentTracker():
         if isinstance(new_since, datetime):
             new_since = datetime.strftime(new_since, "%Y/%m/%d")
         new_since = "/".join(new_since.split(" "))
+        new_since = "/".join(new_since.split("."))
         new_since = "/".join(new_since.split("-"))
         self.__since = datetime.strptime(new_since, "%Y/%m/%d").date()
         print(f"tracker.since is set as {self.__since}")
@@ -85,6 +87,7 @@ class PatentTracker():
         if isinstance(new_before, datetime):
             new_before = datetime.strftime(new_before, "%Y/%m/%d")
         new_before = "/".join(new_before.split(" "))
+        new_before = "/".join(new_before.split("."))
         new_before = "/".join(new_before.split("-"))
         self.__before = datetime.strptime(new_before, "%Y/%m/%d").date()
         print(f"tracker.before is set as {self.__before}")
@@ -119,10 +122,10 @@ class PatentTracker():
         return self.__results
 
     ############### II. LOAD SETTINGS, INPUT ###############
-    def read_and_check_api_key(self, path:str):
+    def read_and_check_api_key(self, path:str, verbose=False):
         with open(path, "r") as text:
             api_key = text.readline()
-        print("API key를 api_key.txt 로부터가져왔습니다.")
+        if verbose: print("API key를 api_key.txt 로부터가져왔습니다.")
         #print(f"Read api_key from api_key.txt as : {api_key}")
         if self.check_api_key(api_key):
             self.api_key = api_key
@@ -141,7 +144,7 @@ class PatentTracker():
         # urllib.request(url+query)
         return True
 
-    def read_input(self, input_path:str=input_path):
+    def read_input(self, input_path:str=input_path, verbose=False):
         """Reads file that contains input info and assigns properties using setters.
         self.__targets, self.since, self.before will be assigned.
 
@@ -153,7 +156,7 @@ class PatentTracker():
         
         if os.path.exists(input_path): 
             wb = openpyxl.load_workbook(input_path) #Read xl file
-            print(f"{input_path}로 부터 인풋 값을 불러옵니다.")
+            if verbose: print(f"{input_path}로 부터 인풋 값을 불러옵니다.")
 
             # Fetching application numbers from sheet 'targets'
             try:target_sheet = wb['targets']
@@ -168,13 +171,15 @@ class PatentTracker():
                 # print(f"출원번호 {row[0]} 및 추가정보를 읽어왔습니다.")
 
             self.targets = targets #saved as generator
-            print(f"targets[:3]: {targets[:3]}")
-            print(f"self.targets: {self.targets}")
+            if verbose:
+                print(f"targets[:3]: {targets[:3]}")
+                print(f"self.targets: {self.targets}")
             self.__additional_info_dict = additional_info_dict
-            print("타겟 정보를 성공적으로 불러왔습니다.")
-            print(f"타겟 수: {len(targets)}")
-            print(f"첫번째 타겟 출원번호: {list(self.additional_info_dict.keys())[0]}")
-            print(f"첫번째 타겟 부가정보: {list(self.additional_info_dict.values())[0]}")
+            if verbose:
+                print("타겟 정보를 성공적으로 불러왔습니다.")
+                print(f"타겟 수: {len(targets)}")
+                print(f"첫번째 타겟 출원번호: {list(self.additional_info_dict.keys())[0]}")
+                print(f"첫번째 타겟 부가정보: {list(self.additional_info_dict.values())[0]}")
 
             # Reading date info from sheet 'dates'
             try:dates_sheet = wb['dates']
@@ -197,7 +202,7 @@ class PatentTracker():
             # print(f"file does not exist in the path: {input_path}")  
 
     ############### III. TRACKING ###############
-    async def track_patents(self):
+    async def track_patents(self, verbose=False):
         """Asynchronously tracks patents in self.targets
 
         Simply operates by repeating self.track_patent()
@@ -207,7 +212,7 @@ class PatentTracker():
         """
         
         # returned values of each task will be appended into an empty list and then returned.
-        futures = [asyncio.ensure_future(self.track_patent(patent)) for patent in self.targets]
+        futures = [asyncio.ensure_future(self.track_patent(patent, verbose=verbose)) for patent in self.targets]
         results = await asyncio.gather(*futures)
 
         ## this code will work synchronously -> compare with async
@@ -216,22 +221,23 @@ class PatentTracker():
         #     results.append(await self.track_patent(patent))
         # print(results)
         self.__results = results
-        print(f"특허 트래킹 완료.")
-        print(f"첫 특허의 출원번호: {results[0][0]}")
-        print(f"첫 특허의 결과 테이블 일부: {results[0][1][:3]}")
+        if verbose:
+            print(f"특허 트래킹 완료.")
+            print(f"첫 특허의 출원번호: {results[0][0]}")
+            print(f"첫 특허의 결과 테이블 일부: {results[0][1][:3]}")
 
-    async def track_patent(self, patent):
+    async def track_patent(self, patent, verbose=False):
         """ Requests information of a patent and filter_out unneccesary information.
         
         Returns a 2-dimensional list.
         """
-        records = await self.request_and_parse_kipris_API(application_number = patent, api_key = self.api_key)
+        records = await self.request_and_parse_kipris_API(application_number = patent, api_key = self.api_key, verbose=verbose)
         #print(f"records: {records}")
-        result_table = await self.filter_records(records)
+        result_table = await self.filter_records(records, verbose=verbose)
         # self.__result_dict[patent] = result_table
         return (patent, result_table)
 
-    async def request_and_parse_kipris_API(self, application_number, api_key):
+    async def request_and_parse_kipris_API(self, application_number, api_key, verbose=False):
         """Request kipris REST API (asynchronously) and parse data using Beautifulsoup.
 
         soup.findall("relateddocsonfileInfo") will be returned.
@@ -241,7 +247,7 @@ class PatentTracker():
         query = f'?applicationNumber={application_number}&accessKey={api_key}'
         
         time1 = time.time()
-        print(f"request for patent:{application_number} started.")
+        if verbose: print(f"request for patent:{application_number} started.")
         
         ## request by requests and loop.run_in_executor
         # import requests
@@ -255,7 +261,7 @@ class PatentTracker():
                 text = await response.text()
         
         time2 = time.time()
-        print(f"request for patent:{application_number} finished. time:{time2-time1}")
+        if verbose: print(f"request for patent:{application_number} finished. time:{time2-time1}")
         
         # parse
         soup = BeautifulSoup(text, "xml")
@@ -266,7 +272,7 @@ class PatentTracker():
 
         return records
 
-    async def filter_records(self, records):
+    async def filter_records(self, records, verbose=False):
         """ Filters out unnecessary records and fields.
 
         Returns a 2-dimensional list.
@@ -289,11 +295,11 @@ class PatentTracker():
                     record.registrationNumber.text #등록 번호
                 ])
         time2 = time.time()
-        print(f"filtering records from a patent finished. time:{time2-time1}")
+        if verbose: print(f"filtering records from a patent finished. time:{time2-time1}")
         return filtered_records
     
     ############### OUTPUT ###############
-    def to_excel(self):
+    def to_excel(self, verbose=False):
         """Saves result as an excel file(.xlsx)
 
         """
@@ -304,18 +310,15 @@ class PatentTracker():
             return
         
         # Create excel file
-        print("엑셀 파일 작성을 시작합니다.")
+        if verbose: print("엑셀 파일 작성을 시작합니다.")
         result_wb = openpyxl.Workbook()
         result_ws = result_wb.active
         result_ws.title = 'result'
 
         # Apply sheet_style
-        result_ws.column_dimensions['A'].width = sheet_style["col_A_width"]
-        result_ws.column_dimensions['B'].width = sheet_style["col_B_width"]
-        result_ws.column_dimensions['C'].width = sheet_style["col_C_width"]
-        result_ws.column_dimensions['D'].width = sheet_style["col_D_width"]
-        result_ws.column_dimensions['E'].width = sheet_style["col_E_width"]
-        result_ws.column_dimensions['F'].width = sheet_style["col_F_width"]
+        for letter in string.ascii_uppercase[:6]:
+            result_ws.column_dimensions[letter] = sheet_style[f"col_{letter}_width"]
+
         current_row = 1
 
         # Write data
@@ -337,7 +340,7 @@ class PatentTracker():
         timestamp = time.strftime("%y%m%d_%H%M%S")
         output_name = output_directory + f"/output_{timestamp}.xlsx"
         result_wb.save(output_name)
-        print(f'엑셀 파일 {output_name}  저장을 완료했습니다.')
+        if verbose: print(f'엑셀 파일 {output_name}  저장을 완료했습니다.')
 
     def _write_title(self, result_ws, current_row, title):
         # default_title: application number.
@@ -346,25 +349,18 @@ class PatentTracker():
         result_ws[f'A{current_row}'].style = info_style
 
     def _write_info(self, result_ws, current_row, additional_info):
-        #info: from input.xlsx
-        info_1, info_2, info_3, info_4, info_5 = additional_info
+
         #result_ws[f'A{current_row}'].value = info_0 
-        result_ws[f'B{current_row}'].value = info_1
-        result_ws[f'C{current_row}'].value = info_2
-        result_ws[f'D{current_row}'].value = info_3
-        result_ws[f'E{current_row}'].value = info_4
-        result_ws[f'F{current_row}'].value = info_5
+        for i,j in enumerate('BCDEF'):
+            result_ws[f'{j}{current_row}'].value = additional_info[i] #info: from input.xlsx
         for row in result_ws[f"A{current_row}":f"F{current_row}"]:
             for cell in row:
                 cell.style = info_style
     
     def _write_fields(self, result_ws, current_row):
-        result_ws[f'A{current_row}'].value = "번호"
-        result_ws[f'B{current_row}'].value = "서류명"
-        result_ws[f'C{current_row}'].value = "접수/발송일자" 
-        result_ws[f'D{current_row}'].value = "처리상태" 
-        result_ws[f'E{current_row}'].value = "단계"
-        result_ws[f'F{current_row}'].value = "심판/등록 번호"
+        fields = ["번호", "서류명", "접수/발송일자", "처리단계", "단계", "심판/등록 번호"]
+        for i,j in zip(fields, 'ABCDEF'):
+            result_ws[f'{j}{current_row}'].value = i
         for row in result_ws[f"A{current_row}":f"F{current_row}"]:
             for cell in row:
                 cell.style=field_style
@@ -373,12 +369,8 @@ class PatentTracker():
     def _write_records(self, result_ws, current_row, records):
         for row in records:
             number, document_title, document_date, status, step, trial_number, registration_number = row
-            result_ws[f'A{current_row}'].value = number #번호
-            result_ws[f'B{current_row}'].value = document_title #서류명
-            result_ws[f'C{current_row}'].value = document_date #접수/발송일자
-            result_ws[f'D{current_row}'].value = status #처리상태
-            result_ws[f'E{current_row}'].value = step #단계
-
+            for i,j in zip(row[:5],'ABCDE'): #번호, 서류명, 접수/발송일자, 처리상태, 단계
+                result_ws[f'{j}{current_row}'].value = i
             if trial_number !=' ':
                 result_ws[f'F{current_row}'].value = trial_number #심판번호
             elif registration_number !=' ':
@@ -402,7 +394,7 @@ class DrugPatentTracker(PatentTracker):
                 cell.style = info_style
     
     #as __write_info was overrode, to_excel also needs to be overidden
-    def to_excel(self):
+    def to_excel(self, verbose=False):
         """Saves result as an excel file(.xlsx)
 
         """
@@ -413,18 +405,14 @@ class DrugPatentTracker(PatentTracker):
             return
         
         # Create excel file
-        print("엑셀 파일 작성을 시작합니다.")
+        if verbose: print("엑셀 파일 작성을 시작합니다.")
         result_wb = openpyxl.Workbook()
         result_ws = result_wb.active
         result_ws.title = 'result'
 
         # Apply sheet_style
-        result_ws.column_dimensions['A'].width = sheet_style["col_A_width"]
-        result_ws.column_dimensions['B'].width = sheet_style["col_B_width"]
-        result_ws.column_dimensions['C'].width = sheet_style["col_C_width"]
-        result_ws.column_dimensions['D'].width = sheet_style["col_D_width"]
-        result_ws.column_dimensions['E'].width = sheet_style["col_E_width"]
-        result_ws.column_dimensions['F'].width = sheet_style["col_F_width"]
+        for letter in string.ascii_uppercase[:6]:
+            result_ws.column_dimensions[letter].width = sheet_style[f"col_{letter}_width"]
         current_row = 1
 
         # Write data
@@ -446,12 +434,12 @@ class DrugPatentTracker(PatentTracker):
         timestamp = time.strftime("%y%m%d_%H%M%S")
         output_name = output_directory + f"/output_{timestamp}.xlsx"
         result_wb.save(output_name)
-        print(f'엑셀 파일 {output_name}  저장을 완료했습니다.')
+        if verbose: print(f'엑셀 파일 {output_name}  저장을 완료했습니다.')
 
 if __name__ == "__main__":
     # tracker = PatentTracker()
     wb = openpyxl.load_workbook(input_path) #Read xl file
-    ws = wb['output_mode']
+    ws = wb['output_type']
     ouput_type = ws['C4'].value.strip().upper()
     if ouput_type == "DRUG":
         tracker = DrugPatentTracker()
@@ -461,8 +449,8 @@ if __name__ == "__main__":
         tracker = PatentTracker()
     time1 = time.time()
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(tracker.track_patents())
+    loop.run_until_complete(tracker.track_patents(verbose=True))
     loop.close
     time2 = time.time()
     print(f"total time taken: {time2-time1}")
-    tracker.to_excel()
+    tracker.to_excel(verbose=True)

@@ -2,7 +2,7 @@
 
 > Sorry! I wrote this `Readme.md` in Korean because this program is created for native Koreans.
 >
-> Simply put, it asynchronously requests patent information using OpenAPI provided by Korean Intellectual Property Office (KIPO) and summarize events.
+> Simply put, it asynchronously requests patent information using Open API provided by Korean Intellectual Property Office (KIPO) and summarize events.
 
 
 
@@ -25,13 +25,17 @@ KiprisPlus에서 제공하는 API를 이용해 원하는 특허를 추적하여 
 3. 객체지향 프로그래밍 사용. (학습 목적)
 
 
-사용한 Open API 관련 정보는 https://www.data.go.kr/data/15056882/openapi.do 에서 확인하실 수 있습니다.
+사용한 API 관련 정보는 https://www.data.go.kr/data/15056882/openapi.do 에서 확인하실 수 있습니다.
 
 
 
 ## Notice
 
 <strong> ####### 반드시 api_key 를 등록해야만 사용이 가능합니다 (Setting 참고) ####### </strong>
+
+Python 3.7 or higher is recommended.
+
+Demo video: https://www.youtube.com/watch?v=4kJbQQfBi20
 
 
 
@@ -158,10 +162,7 @@ def __init__(self):
 
 ## Todo
 
-- directory tree그려넣기.
-- requirements.txt 넣기.
 - #save_to 항목 도 만들기. (디폴트 현재폴더)
-- selenium 이용 크롤링 지원?
-- 사용법 (QuickStart for consumers, QuickStart for developers)
-- 핵심기능 관련 도큐먼트 작성 (클래스 종류 및 arguments)
+- selenium 이용 kipris 크롤링 지원?
 - invalid api key 처리, 당월 API 요청 가능 횟수 초과 처리
+

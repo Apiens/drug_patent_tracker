@@ -1,0 +1,15 @@
+aiohttp==3.6.2
+async-timeout==3.0.1
+attrs==20.2.0
+beautifulsoup4==4.9.2
+bs4==0.0.1
+chardet==3.0.4
+et-xmlfile==1.0.1
+idna==2.10
+jdcal==1.4.1
+lxml==4.5.2
+multidict==4.7.6
+openpyxl==3.0.5
+soupsieve==2.0.1
+typing-extensions==3.7.4.3
+yarl==1.6.0
